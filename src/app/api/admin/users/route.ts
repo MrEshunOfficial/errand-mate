@@ -5,7 +5,7 @@ import { auth } from '@/auth';
 import { connect } from '@/lib/dbconfigue/dbConfigue';
 import { User } from '@/app/models/auth/authModel';
 
-export async function Get() {
+export async function GET() {
   try {
     const session = await auth();
     
