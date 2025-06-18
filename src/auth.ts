@@ -582,7 +582,7 @@ export const authOptions: NextAuthConfig = {
       if (publicPaths.some((p) => path.startsWith(p))) {
         if (isLoggedIn && (path.startsWith("/user/login") || path.startsWith("/user/register"))) {
           // Redirect authenticated users trying to access login/register to profile
-          return Response.redirect(new URL("/user/profile", nextUrl));
+          return Response.redirect(new URL("/profile", nextUrl));
         }
         return true;
       }
@@ -595,11 +595,13 @@ export const authOptions: NextAuthConfig = {
         return isLoggedIn;
       }
       
+      // Redirect root path to profile for authenticated users
       if (path === "/") {
         if (!isLoggedIn) {
           return Response.redirect(new URL("/user/login", nextUrl));
         }
-        return Response.redirect(new URL("/user/profile", nextUrl));
+        // Redirect authenticated users to profile instead of staying on root
+        return Response.redirect(new URL("/profile", nextUrl));
       }
       
       return true;
@@ -704,12 +706,13 @@ export const authOptions: NextAuthConfig = {
         return `${baseUrl}/user/login`;
       }
 
+      // Redirect successful OAuth callbacks to profile
       if (url.startsWith("/api/auth/callback/google")) {
-        return `${baseUrl}/user/profile`;
+        return `${baseUrl}/profile`;
       }
 
       if (url.startsWith("/api/auth/callback")) {
-        return `${baseUrl}/user/profile`;
+        return `${baseUrl}/profile`;
       }
       
       try {
@@ -727,8 +730,9 @@ export const authOptions: NextAuthConfig = {
       }
       
       if (url.startsWith("/")) {
+        // Default redirect for authenticated users should be profile
         if (url === "/") {
-          return `${baseUrl}/user/profile`;
+          return `${baseUrl}/profile`;
         }
         return `${baseUrl}${url}`;
       }
@@ -736,7 +740,9 @@ export const authOptions: NextAuthConfig = {
       if (url.startsWith(baseUrl)) {
         return url;
       }
-      return `${baseUrl}/user/profile`;
+
+      // Default fallback to profile for authenticated users
+      return `${baseUrl}/profile`;
     },
   },
 };
