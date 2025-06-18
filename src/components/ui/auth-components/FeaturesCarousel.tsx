@@ -64,7 +64,7 @@ const features = [
   {
     title: "On-Demand Task Support",
     description:
-      "Book assistants or taskers for professional, academic, administrative, or personal tasks quickly and easily.",
+      "Book assistants or service providers for professional, academic, administrative, or personal tasks quickly and easily.",
     icon: (
       <Briefcase className="h-10 w-10 text-violet-500 dark:text-violet-400" />
     ),
