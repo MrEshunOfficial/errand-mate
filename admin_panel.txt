@@ -1,0 +1,14 @@
+Admin Panel Dashboard
+├── Users Management
+│   ├── View All Users (paginated, searchable)
+│   ├── Promote User to Admin
+│   └── Demote Admin to User
+├── Invitations
+│   ├── Send New Invitation
+│   ├── View Pending Invitations
+│   └── Revoke Invitations
+├── Audit Log
+│   └── View All Admin Actions
+└── Statistics
+    ├── Total Users/Admins
+    └── Recent Activity

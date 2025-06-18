@@ -55,7 +55,6 @@ async function checkAndGetUserRole(email: string): Promise<string> {
   try {
     await connect();
     
-    // First check if user already exists in database
     const existingUser = await User.findOne({ email: email.toLowerCase() });
     
     if (existingUser) {
@@ -582,7 +581,8 @@ export const authOptions: NextAuthConfig = {
 
       if (publicPaths.some((p) => path.startsWith(p))) {
         if (isLoggedIn && (path.startsWith("/user/login") || path.startsWith("/user/register"))) {
-          return Response.redirect(new URL("/", nextUrl));
+          // Redirect authenticated users trying to access login/register to profile
+          return Response.redirect(new URL("/user/profile", nextUrl));
         }
         return true;
       }
@@ -599,7 +599,7 @@ export const authOptions: NextAuthConfig = {
         if (!isLoggedIn) {
           return Response.redirect(new URL("/user/login", nextUrl));
         }
-        return true;
+        return Response.redirect(new URL("/user/profile", nextUrl));
       }
       
       return true;
@@ -705,11 +705,11 @@ export const authOptions: NextAuthConfig = {
       }
 
       if (url.startsWith("/api/auth/callback/google")) {
-        return `${baseUrl}/`;
+        return `${baseUrl}/user/profile`;
       }
 
       if (url.startsWith("/api/auth/callback")) {
-        return `${baseUrl}/`;
+        return `${baseUrl}/user/profile`;
       }
       
       try {
@@ -728,7 +728,7 @@ export const authOptions: NextAuthConfig = {
       
       if (url.startsWith("/")) {
         if (url === "/") {
-          return `${baseUrl}/`;
+          return `${baseUrl}/user/profile`;
         }
         return `${baseUrl}${url}`;
       }
@@ -736,8 +736,7 @@ export const authOptions: NextAuthConfig = {
       if (url.startsWith(baseUrl)) {
         return url;
       }
-
-      return `${baseUrl}/`;
+      return `${baseUrl}/user/profile`;
     },
   },
 };

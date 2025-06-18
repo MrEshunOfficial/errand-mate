@@ -80,7 +80,7 @@ export default function AuthLogin(): JSX.Element {
           <h2 className="text-xl lg:text-2xl font-bold text-gray-900 dark:text-white transition-colors duration-200">
             Welcome Back to{" "}
             <span className="text-teal-600 dark:text-teal-400 transition-colors duration-200">
-              Kayaye
+              Errands Mate
             </span>
           </h2>
           <span className="text-gray-500 dark:text-gray-400 text-sm ml-2 transition-colors duration-200">
