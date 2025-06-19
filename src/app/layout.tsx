@@ -24,6 +24,7 @@ export const metadata: Metadata = {
     shortcut: "/favicon.png",
   },
 };
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -36,7 +37,7 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.png" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 overflow-x-hidden`}
         suppressHydrationWarning
       >
         <SessionProvider>
@@ -47,9 +48,18 @@ export default function RootLayout({
               enableSystem
               disableTransitionOnChange
             >
+              {/* Header with fixed positioning */}
               <Header />
-              <main className="w-full min-h-[calc(100vh-64px)] p-2">
-                {children}
+
+              {/* Main content with proper top padding to account for fixed header */}
+              <main className="relative w-full min-h-screen">
+                {/* Spacer div to prevent content from hiding behind fixed header */}
+                <div className="h-16 sm:h-18 lg:h-20" aria-hidden="true" />
+
+                {/* Actual content container */}
+                <div className="w-full min-h-[calc(100vh-4rem)] sm:min-h-[calc(100vh-4.5rem)] lg:min-h-[calc(100vh-5rem)] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
+                  {children}
+                </div>
               </main>
             </ThemeProvider>
           </ReduxProvider>

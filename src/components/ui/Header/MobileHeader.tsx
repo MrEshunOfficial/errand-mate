@@ -36,6 +36,7 @@ interface MobileMenuProps {
   onClose: () => void;
   navigationItems: NavigationItem[];
   isActive: (path: string) => boolean;
+  userSession?: string; // Added userSession prop
 }
 
 export default function MobileMenu({
@@ -43,9 +44,9 @@ export default function MobileMenu({
   onClose,
   navigationItems,
   isActive,
+  userSession, // Now accepting userSession as a prop
 }: MobileMenuProps) {
   const { data: session } = useSession();
-  const userSession = session?.user?.id;
 
   const handleSignOut = async () => {
     await signOut({ callbackUrl: "/" });

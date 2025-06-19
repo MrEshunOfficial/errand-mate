@@ -150,10 +150,10 @@ export default function Header() {
   return (
     <>
       <header
-        className={`fixed top-0 z-50 w-full transition-all duration-500 ease-out ${
+        className={`fixed top-0 left-0 right-0 z-50 w-full transition-all duration-500 ease-out ${
           scrolled
-            ? "bg-white/70 dark:bg-gray-950/70 backdrop-blur-xl shadow-2xl border-b border-white/20 dark:border-gray-800/30"
-            : "bg-white/90 dark:bg-gray-950/90 backdrop-blur-md border-b border-transparent"
+            ? "bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl shadow-2xl border-b border-white/20 dark:border-gray-800/30"
+            : "bg-white/95 dark:bg-gray-950/95 backdrop-blur-md border-b border-gray-200/20 dark:border-gray-800/20"
         }`}
         style={{
           backdropFilter: scrolled
@@ -162,116 +162,121 @@ export default function Header() {
         }}
       >
         {/* Glassmorphism overlay */}
-        <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 via-transparent to-blue-600/5 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-red-500/3 via-transparent to-blue-600/3 pointer-events-none" />
 
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            {/* Logo and Brand */}
-            <div className="flex items-center space-x-8">
-              <Link href="/" className="flex-shrink-0 group">
-                <div className="flex items-center space-x-3 transition-all duration-300 group-hover:scale-105">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-400/50 to-blue-600/50 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <Image
-                      src="/errand_logo.jpg"
-                      alt="Errand Mate"
-                      width={40}
-                      height={40}
-                      className="relative object-cover w-10 h-10 rounded-full ring-2 ring-white/50 dark:ring-gray-800/50 shadow-lg"
+        <div className="relative w-full max-w-none">
+          <div className="px-4 sm:px-6 lg:px-8 xl:px-12">
+            <div className="flex justify-between items-center h-16 sm:h-18 lg:h-20">
+              {/* Logo and Brand */}
+              <div className="flex items-center flex-shrink-0 min-w-0">
+                <Link href="/" className="group">
+                  <div className="flex items-center space-x-2 sm:space-x-3 transition-all duration-300 group-hover:scale-105">
+                    <div className="relative flex-shrink-0">
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-400/50 to-blue-600/50 rounded-full blur-md opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <Image
+                        src="/errand_logo.jpg"
+                        alt="Errand Mate"
+                        width={36}
+                        height={36}
+                        className="relative object-cover w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-full ring-2 ring-white/50 dark:ring-gray-800/50 shadow-lg"
+                        priority
+                      />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-lg sm:text-xl lg:text-2xl font-bold bg-gradient-to-r from-red-500 via-red-400 to-blue-600 text-transparent bg-clip-text tracking-tight truncate">
+                        Errand Mate
+                      </span>
+                      <span className="hidden sm:block text-xs text-gray-500 dark:text-gray-400 font-medium tracking-wide truncate">
+                        Let us run it for you
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+
+              {/* Desktop Navigation - Hidden on smaller screens */}
+              <nav className="hidden xl:flex xl:items-center xl:space-x-1">
+                {navigationItems.map((item) =>
+                  item.children ? (
+                    <NavDropdown
+                      key={item.title}
+                      item={item}
+                      isActive={isActive(item.href)}
                     />
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-2xl font-bold bg-gradient-to-r from-red-500 via-red-400 to-blue-600 text-transparent bg-clip-text tracking-tight">
-                      Errand Mate
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium tracking-wide">
-                      Let us run it for you
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            </div>
+                  ) : (
+                    <NavLink
+                      key={item.title}
+                      href={item.href}
+                      isActive={isActive(item.href)}
+                      icon={item.icon}
+                    >
+                      {item.title}
+                    </NavLink>
+                  )
+                )}
+              </nav>
 
-            {/* Desktop Navigation */}
-            <nav className="hidden lg:flex lg:space-x-2">
-              {navigationItems.map((item) =>
-                item.children ? (
-                  <NavDropdown
-                    key={item.title}
-                    item={item}
-                    isActive={isActive(item.href)}
-                  />
+              {/* Desktop Auth Buttons and Theme Toggle */}
+              <div className="flex items-center space-x-2 sm:space-x-3 lg:space-x-4 flex-shrink-0">
+                {!userSession ? (
+                  <div className="hidden sm:flex items-center space-x-2 lg:space-x-3">
+                    <Link
+                      href="/auth/users/login"
+                      className="relative px-3 sm:px-4 lg:px-6 py-2 lg:py-2.5 text-sm lg:text-base font-medium text-gray-700 dark:text-gray-300 transition-all duration-300 group whitespace-nowrap"
+                    >
+                      <div className="absolute inset-0 bg-white/20 dark:bg-gray-800/20 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <span className="relative group-hover:text-blue-600 dark:group-hover:text-blue-400">
+                        Sign In
+                      </span>
+                    </Link>
+                    <Link
+                      href="/auth/users/register"
+                      className="relative px-4 sm:px-6 lg:px-8 py-2 lg:py-3 text-sm lg:text-base font-semibold text-white rounded-full overflow-hidden group transition-all duration-300 hover:scale-105 hover:shadow-xl whitespace-nowrap"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-red-400 to-blue-600 transition-all duration-300" />
+                      <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-500 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                      <span className="relative flex items-center gap-2">
+                        Register
+                        <div className="w-2 h-2 bg-white/50 rounded-full animate-pulse" />
+                      </span>
+                    </Link>
+                  </div>
                 ) : (
-                  <NavLink
-                    key={item.title}
-                    href={item.href}
-                    isActive={isActive(item.href)}
-                    icon={item.icon}
-                  >
-                    {item.title}
-                  </NavLink>
-                )
-              )}
-            </nav>
+                  <div className="hidden sm:block">
+                    <UserMenu />
+                  </div>
+                )}
 
-            {/* Desktop Auth Buttons and Theme Toggle */}
-            <div className="hidden lg:flex items-center space-x-4">
-              {!userSession ? (
-                <>
-                  <Link
-                    href="/auth/users/login"
-                    className="relative px-6 py-2.5 font-medium text-gray-700 dark:text-gray-300 transition-all duration-300 group"
-                  >
-                    <div className="absolute inset-0 bg-white/20 dark:bg-gray-800/20 rounded-full backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <span className="relative group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                      Sign In
-                    </span>
-                  </Link>
-                  <Link
-                    href="/auth/users/register"
-                    className="relative px-8 py-3 font-semibold text-white rounded-full overflow-hidden group transition-all duration-300 hover:scale-105 hover:shadow-xl"
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-500 via-red-400 to-blue-600 transition-all duration-300" />
-                    <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-500 to-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                    <span className="relative flex items-center gap-2">
-                      Register
-                      <div className="w-2 h-2 bg-white/50 rounded-full animate-pulse" />
-                    </span>
-                  </Link>
-                </>
-              ) : (
-                <UserMenu />
-              )}
+                <ThemeSwitcher />
 
-              <ThemeSwitcher />
-            </div>
-
-            {/* Mobile Menu Button */}
-            <div className="lg:hidden flex items-center space-x-3">
-              <ThemeSwitcher />
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="relative w-12 h-12 rounded-full bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-gray-800/30 transition-all duration-300"
-              >
-                <div className="relative w-6 h-6">
-                  <Menu
-                    className={`absolute inset-0 w-6 h-6 transition-all duration-300 ${
-                      mobileMenuOpen
-                        ? "rotate-90 opacity-0"
-                        : "rotate-0 opacity-100"
-                    }`}
-                  />
-                  <X
-                    className={`absolute inset-0 w-6 h-6 transition-all duration-300 ${
-                      mobileMenuOpen
-                        ? "rotate-0 opacity-100"
-                        : "-rotate-90 opacity-0"
-                    }`}
-                  />
+                {/* Mobile Menu Button - Shows on xl and below */}
+                <div className="xl:hidden">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                    className="relative w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12 rounded-full bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-gray-800/30 transition-all duration-300 border border-white/20 dark:border-gray-700/20"
+                    aria-label="Toggle mobile menu"
+                  >
+                    <div className="relative w-5 h-5 sm:w-6 sm:h-6">
+                      <Menu
+                        className={`absolute inset-0 w-5 h-5 sm:w-6 sm:h-6 transition-all duration-300 ${
+                          mobileMenuOpen
+                            ? "rotate-90 opacity-0"
+                            : "rotate-0 opacity-100"
+                        }`}
+                      />
+                      <X
+                        className={`absolute inset-0 w-5 h-5 sm:w-6 sm:h-6 transition-all duration-300 ${
+                          mobileMenuOpen
+                            ? "rotate-0 opacity-100"
+                            : "-rotate-90 opacity-0"
+                        }`}
+                      />
+                    </div>
+                  </Button>
                 </div>
-              </Button>
+              </div>
             </div>
           </div>
         </div>
@@ -283,6 +288,7 @@ export default function Header() {
         onClose={() => setMobileMenuOpen(false)}
         navigationItems={navigationItems}
         isActive={isActive}
+        userSession={userSession}
       />
     </>
   );
@@ -298,16 +304,16 @@ function ThemeSwitcher() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative w-12 h-12 rounded-full bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-gray-800/30 transition-all duration-300 border border-white/30 dark:border-gray-700/30"
+          className="relative w-10 h-10 sm:w-11 sm:h-11 lg:w-12 lg:h-12 rounded-full bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-gray-800/30 transition-all duration-300 border border-white/20 dark:border-gray-700/20"
+          aria-label="Toggle theme"
         >
-          <Sun className="h-5 w-5 rotate-0 scale-100 transition-all duration-300 dark:rotate-90 dark:scale-0" />
-          <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all duration-300 dark:rotate-0 dark:scale-100" />
-          <span className="sr-only">Toggle theme</span>
+          <Sun className="h-4 w-4 sm:h-5 sm:w-5 rotate-0 scale-100 transition-all duration-300 dark:rotate-90 dark:scale-0" />
+          <Moon className="absolute h-4 w-4 sm:h-5 sm:w-5 rotate-90 scale-0 transition-all duration-300 dark:rotate-0 dark:scale-100" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/30 rounded-2xl shadow-2xl"
+        className="bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-white/20 dark:border-gray-800/30 rounded-2xl shadow-2xl min-w-[160px]"
         style={{ backdropFilter: "blur(20px) saturate(180%)" }}
       >
         <DropdownMenuItem
@@ -352,40 +358,40 @@ function UserMenu() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative flex items-center gap-3 px-4 py-2 h-12 rounded-full bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-gray-800/30 transition-all duration-300 border border-white/30 dark:border-gray-700/30"
+          className="relative flex items-center gap-2 sm:gap-3 px-2 sm:px-3 lg:px-4 py-2 h-10 sm:h-11 lg:h-12 rounded-full bg-white/20 dark:bg-gray-800/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-gray-800/30 transition-all duration-300 border border-white/20 dark:border-gray-700/20 max-w-[200px]"
         >
-          <div className="w-8 h-8 rounded-full overflow-hidden relative bg-gradient-to-br from-red-500 to-blue-600 flex items-center justify-center shadow-lg">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden relative bg-gradient-to-br from-red-500 to-blue-600 flex items-center justify-center shadow-lg flex-shrink-0">
             {session?.user?.image ? (
               <Image
                 src={session.user.image}
                 alt={`${session?.user?.name || "User"}'s avatar`}
                 width={32}
                 height={32}
-                className="rounded-full object-cover"
+                className="rounded-full object-cover w-full h-full"
                 sizes="32px"
               />
             ) : (
-              <span className="text-white text-sm font-semibold">
+              <span className="text-white text-xs sm:text-sm font-semibold">
                 {session?.user?.name?.[0]?.toUpperCase() || "U"}
               </span>
             )}
           </div>
-          <span className="hidden sm:inline font-medium">
+          <span className="hidden md:inline text-sm lg:text-base font-medium truncate">
             {session?.user?.name || "Account"}
           </span>
-          <ChevronDown className="h-4 w-4 transition-transform duration-300" />
+          <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 transition-transform duration-300 flex-shrink-0" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="end"
-        className="w-64 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/30 rounded-2xl shadow-2xl"
+        className="w-56 sm:w-64 bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-white/20 dark:border-gray-800/30 rounded-2xl shadow-2xl"
         style={{ backdropFilter: "blur(20px) saturate(180%)" }}
       >
         <div className="px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
-          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
             {session?.user?.name || "User"}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
             {session?.user?.email}
           </p>
         </div>
@@ -447,7 +453,7 @@ function UserMenu() {
 
         <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/50" />
         <div className="p-2">
-          <button className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50/50 dark:hover:bg-red-950/50 transition-all duration-300">
+          <button className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50/50 dark:hover:bg-red-950/50 transition-all duration-300 text-sm">
             Sign Out
           </button>
         </div>
@@ -471,14 +477,14 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={`relative flex items-center gap-2 px-6 py-3 font-medium transition-all duration-300 group rounded-2xl ${
+      className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-300 group rounded-xl whitespace-nowrap ${
         isActive
           ? "text-blue-600 dark:text-blue-400 bg-white/30 dark:bg-blue-950/30 shadow-lg"
           : "text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white/20 dark:hover:bg-gray-800/20"
       }`}
     >
       {icon && (
-        <span className="transition-transform duration-300 group-hover:scale-110">
+        <span className="transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
           {icon}
         </span>
       )}
@@ -506,19 +512,19 @@ function NavDropdown({
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`relative flex items-center gap-2 px-6 py-3 font-medium transition-all duration-300 group rounded-2xl ${
+          className={`relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-all duration-300 group rounded-xl whitespace-nowrap ${
             isActive
               ? "text-blue-600 dark:text-blue-400 bg-white/30 dark:bg-blue-950/30 shadow-lg"
               : "text-gray-700 dark:text-gray-200 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white/20 dark:hover:bg-gray-800/20"
           }`}
         >
           {item.icon && (
-            <span className="transition-transform duration-300 group-hover:scale-110">
+            <span className="transition-transform duration-300 group-hover:scale-110 flex-shrink-0">
               {item.icon}
             </span>
           )}
           <span>{item.title}</span>
-          <ChevronDown className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
+          <ChevronDown className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180 flex-shrink-0" />
           <div
             className={`absolute bottom-0 left-1/2 transform -translate-x-1/2 h-0.5 bg-gradient-to-r from-red-500 to-blue-600 transition-all duration-300 ${
               isActive
@@ -529,30 +535,30 @@ function NavDropdown({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-96 p-6 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/30 rounded-2xl shadow-2xl"
+        className="w-80 sm:w-96 p-4 sm:p-6 bg-white/95 dark:bg-gray-950/95 backdrop-blur-xl border border-white/20 dark:border-gray-800/30 rounded-2xl shadow-2xl"
         align="center"
         sideOffset={12}
         style={{ backdropFilter: "blur(20px) saturate(180%)" }}
       >
-        <div className="grid gap-3">
+        <div className="grid gap-2 sm:gap-3">
           {item.children?.map((child) => (
             <Link
               key={child.title}
               href={child.href}
-              className="flex items-start p-4 rounded-xl text-sm hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all duration-300 group"
+              className="flex items-start p-3 sm:p-4 rounded-xl text-sm hover:bg-white/50 dark:hover:bg-gray-800/50 transition-all duration-300 group"
             >
               {child.icon && (
-                <div className="mr-4 mt-0.5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300">
+                <div className="mr-3 sm:mr-4 mt-0.5 text-gray-400 group-hover:text-blue-500 transition-colors duration-300 flex-shrink-0">
                   {child.icon}
                 </div>
               )}
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-1">
-                  <span className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 sm:gap-3 mb-1">
+                  <span className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-300 truncate">
                     {child.title}
                   </span>
                   {child.badge && (
-                    <span className="px-2 py-1 text-xs bg-gradient-to-r from-red-500/20 to-blue-600/20 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200/30 dark:border-blue-800/30">
+                    <span className="px-2 py-1 text-xs bg-gradient-to-r from-red-500/20 to-blue-600/20 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200/30 dark:border-blue-800/30 flex-shrink-0">
                       {child.badge}
                     </span>
                   )}

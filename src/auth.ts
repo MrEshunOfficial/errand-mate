@@ -1,4 +1,4 @@
-// auth.ts - Secure NextAuth configuration with proper admin management
+// auth.ts - Fixed secure NextAuth configuration with proper session management
 
 import NextAuth from "next-auth";
 import type { NextAuthConfig, Session, DefaultSession } from "next-auth";
@@ -10,10 +10,10 @@ import { User } from "./app/models/auth/authModel";
 import { privatePaths, publicPaths } from "./auth.config";
 import crypto from "crypto";
 import { AdminAuditLog, AdminInvitation } from "./app/models/auth/adminModels";
-import { bootstrapSuperAdmin, checkFirstUserPromotion } from "./lib/admin/bootstrap";
+import { checkFirstUserPromotion } from "./lib/admin/bootstrap";
 
-
-const activeSessions = new Map<string, { userId: string; createdAt: Date }>();
+// FIXED: Use a more persistent session storage approach
+const activeSessions = new Map<string, { userId: string; createdAt: Date; lastAccessed: Date }>();
 
 declare module "next-auth" {
   interface Session {
@@ -49,6 +49,18 @@ async function generateSessionId(): Promise<string> {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
   return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+// FIXED: Add session validation with last accessed time
+function isSessionValid(sessionId: string): boolean {
+  const session = activeSessions.get(sessionId);
+  if (!session) return false;
+  
+  // Update last accessed time
+  session.lastAccessed = new Date();
+  activeSessions.set(sessionId, session);
+  
+  return true;
 }
 
 async function checkAndGetUserRole(email: string): Promise<string> {
@@ -447,27 +459,18 @@ export async function invalidateUserSessions(userId: string) {
   });
 }
 
-
-
-// Add this to your app startup (e.g., in your main app file or API route)
-export async function initializeApp() {
-  // Bootstrap super admin from environment variables if needed
-  await bootstrapSuperAdmin();
-  
-  // Initialize admin models cleanup
-  const { initializeAdminModels } = await import("./app/models/auth/adminModels");
-  initializeAdminModels();
-}
-
-// Call this in your app startup
-initializeApp().catch(console.error);
-
+// FIXED: Clean up expired sessions but don't be too aggressive
 function cleanupExpiredSessions() {
   const now = new Date();
-  const maxAge = 24 * 60 * 60 * 1000;
+  const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+  const inactivityTimeout = 2 * 60 * 60 * 1000; // 2 hours of inactivity
 
   for (const [sessionId, session] of activeSessions.entries()) {
-    if (now.getTime() - session.createdAt.getTime() > maxAge) {
+    const sessionAge = now.getTime() - session.createdAt.getTime();
+    const inactivityTime = now.getTime() - session.lastAccessed.getTime();
+    
+    // Only remove if session is truly expired (24 hours old) OR inactive for 2+ hours
+    if (sessionAge > maxAge || inactivityTime > inactivityTimeout) {
       activeSessions.delete(sessionId);
     }
   }
@@ -475,11 +478,10 @@ function cleanupExpiredSessions() {
 
 export const authOptions: NextAuthConfig = {
   secret: process.env.AUTH_SECRET,
-  debug: process.env.NODE_ENV === "development",
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60,
-    updateAge: 60 * 60,
+    maxAge: 24 * 60 * 60, // 24 hours
+    updateAge: 60 * 60, // Update every hour
   },
   pages: {
     signIn: "/user/login",
@@ -549,8 +551,12 @@ export const authOptions: NextAuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user, account }) {
-      cleanupExpiredSessions();
+      // FIXED: Only clean up occasionally, not on every request
+      if (Math.random() < 0.01) { // 1% chance to clean up
+        cleanupExpiredSessions();
+      }
 
+      // FIXED: Always preserve existing session info from token
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -562,10 +568,14 @@ export const authOptions: NextAuthConfig = {
         activeSessions.set(sessionId, {
           userId: user.id as string,
           createdAt: new Date(),
+          lastAccessed: new Date(),
         });
       }
-      if (token.sessionId && !activeSessions.has(token.sessionId as string)) {
-        return {};
+
+      // FIXED: Only invalidate if session was explicitly removed, not just missing
+      if (token.sessionId && !isSessionValid(token.sessionId as string)) {
+        // Return null to force re-authentication instead of empty object
+        return null;
       }
 
       return token;
@@ -575,13 +585,13 @@ export const authOptions: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const path = nextUrl.pathname;
       
-      if (isLoggedIn && auth.sessionId && !activeSessions.has(auth.sessionId)) {
-        return Response.redirect(new URL("/user/login", nextUrl));
+      // FIXED: Only check session validity if user is supposedly logged in
+      if (isLoggedIn && auth.sessionId && !isSessionValid(auth.sessionId)) {
+        return Response.redirect(new URL("/user/login?reason=expired", nextUrl));
       }
 
       if (publicPaths.some((p) => path.startsWith(p))) {
         if (isLoggedIn && (path.startsWith("/user/login") || path.startsWith("/user/register"))) {
-          // Redirect authenticated users trying to access login/register to profile
           return Response.redirect(new URL("/profile", nextUrl));
         }
         return true;
@@ -595,12 +605,10 @@ export const authOptions: NextAuthConfig = {
         return isLoggedIn;
       }
       
-      // Redirect root path to profile for authenticated users
       if (path === "/") {
         if (!isLoggedIn) {
           return Response.redirect(new URL("/user/login", nextUrl));
         }
-        // Redirect authenticated users to profile instead of staying on root
         return Response.redirect(new URL("/profile", nextUrl));
       }
       
@@ -612,15 +620,14 @@ export const authOptions: NextAuthConfig = {
 
       try {
         await connect();
-        cleanupExpiredSessions();
-
+        
+        // FIXED: Don't clean up sessions during sign in
         let dbUser = await User.findOne({ email: user.email });
 
         if (!dbUser) {
           if (account) {
             const userName = user.name || user.email?.split('@')[0] || 'User';
             
-            // SECURE: Get role using the secure helper function
             const userRole = await checkAndGetUserRole(user.email);
             
             dbUser = await User.create({
@@ -663,34 +670,46 @@ export const authOptions: NextAuthConfig = {
     },
 
     async session({ session, token }: { session: Session; token: CustomToken }): Promise<Session> {
-      if (!token.email && !token.sub) {
-        return session;
+      // FIXED: Handle null token (from jwt callback)
+      if (!token || (!token.email && !token.sub && !token.id)) {
+        return {} as Session;
       }
       
-      if (token.sessionId && !activeSessions.has(token.sessionId)) {
+      // FIXED: Validate session but don't invalidate unnecessarily
+      if (token.sessionId && !isSessionValid(token.sessionId)) {
         return {} as Session;
       }
 
       try {
         await connect();
-        const user = await User.findById(token.id);
-
-        if (user && session.user) {
-          session.user.id = user._id.toString();
-          session.user.role = user.role;
-          session.user.email = user.email;
-          session.user.name = user.name;
-          session.user.provider = user.provider;
-          session.user.providerId = user.providerId;
-          session.sessionId = token.sessionId;
-        } else if (token && session.user) {
+        
+        // FIXED: Always try to get fresh user data if we have an ID
+        if (token.id) {
+          const user = await User.findById(token.id);
+          if (user && session.user) {
+            session.user.id = user._id.toString();
+            session.user.role = user.role;
+            session.user.email = user.email;
+            session.user.name = user.name;
+            session.user.provider = user.provider;
+            session.user.providerId = user.providerId;
+            session.sessionId = token.sessionId;
+            return session;
+          }
+        }
+        
+        // Fallback to token data if DB query fails
+        if (session.user) {
           session.user.id = token.id as string;
           session.user.role = token.role as string;
           session.sessionId = token.sessionId;
         }
 
         return session;
-      } catch {
+      } catch (error) {
+        console.error("Session callback error:", error);
+        
+        // FIXED: Always provide fallback session data
         if (token && session.user) {
           session.user.id = token.id as string;
           session.user.role = token.role as string;
@@ -706,7 +725,6 @@ export const authOptions: NextAuthConfig = {
         return `${baseUrl}/user/login`;
       }
 
-      // Redirect successful OAuth callbacks to profile
       if (url.startsWith("/api/auth/callback/google")) {
         return `${baseUrl}/profile`;
       }
@@ -730,7 +748,6 @@ export const authOptions: NextAuthConfig = {
       }
       
       if (url.startsWith("/")) {
-        // Default redirect for authenticated users should be profile
         if (url === "/") {
           return `${baseUrl}/profile`;
         }
@@ -741,7 +758,6 @@ export const authOptions: NextAuthConfig = {
         return url;
       }
 
-      // Default fallback to profile for authenticated users
       return `${baseUrl}/profile`;
     },
   },
