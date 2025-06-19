@@ -1,4 +1,4 @@
-// auth.ts - Fixed secure NextAuth configuration with proper session management
+// auth.ts - Updated to use only Option 1 bootstrap method
 
 import NextAuth from "next-auth";
 import type { NextAuthConfig, Session, DefaultSession } from "next-auth";
@@ -10,9 +10,8 @@ import { User } from "./app/models/auth/authModel";
 import { privatePaths, publicPaths } from "./auth.config";
 import crypto from "crypto";
 import { AdminAuditLog, AdminInvitation } from "./app/models/auth/adminModels";
-import { checkFirstUserPromotion } from "./lib/admin/bootstrap";
 
-// FIXED: Use a more persistent session storage approach
+// Session management remains the same
 const activeSessions = new Map<string, { userId: string; createdAt: Date; lastAccessed: Date }>();
 
 declare module "next-auth" {
@@ -51,18 +50,20 @@ async function generateSessionId(): Promise<string> {
   return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-// FIXED: Add session validation with last accessed time
 function isSessionValid(sessionId: string): boolean {
   const session = activeSessions.get(sessionId);
   if (!session) return false;
   
-  // Update last accessed time
   session.lastAccessed = new Date();
   activeSessions.set(sessionId, session);
   
   return true;
 }
 
+/**
+ * Updated to use ONLY environment variable bootstrap (Option 1)
+ * Removed checkFirstUserPromotion logic
+ */
 async function checkAndGetUserRole(email: string): Promise<string> {
   try {
     await connect();
@@ -71,12 +72,6 @@ async function checkAndGetUserRole(email: string): Promise<string> {
     
     if (existingUser) {
       return existingUser.role;
-    }
-    
-    // BOOTSTRAP: Check if this should be the first super admin
-    const firstUserRole = await checkFirstUserPromotion(email);
-    if (firstUserRole === 'super_admin') {
-      return 'super_admin';
     }
     
     // Check for valid admin invitation
@@ -107,6 +102,7 @@ async function checkAndGetUserRole(email: string): Promise<string> {
     }
     
     // All new users without invitation start as regular users
+    // Super admin is ONLY created through environment variable bootstrap
     return 'user';
     
   } catch (error) {
@@ -115,7 +111,7 @@ async function checkAndGetUserRole(email: string): Promise<string> {
   }
 }
 
-// SECURE: Create admin invitation (only existing admins can do this)
+// All admin management functions remain the same...
 export async function createAdminInvitation(
   inviterEmail: string, 
   inviteeEmail: string, 
@@ -126,24 +122,20 @@ export async function createAdminInvitation(
   try {
     await connect();
     
-    // Verify inviter has permission to create invitations
     const inviter = await User.findOne({ email: inviterEmail.toLowerCase() });
     if (!inviter || !['admin', 'super_admin'].includes(inviter.role)) {
       return { success: false, error: 'Insufficient permissions to create invitations' };
     }
     
-    // Super admin role can only be assigned by existing super admins
     if (role === 'super_admin' && inviter.role !== 'super_admin') {
       return { success: false, error: 'Only super admins can create super admin invitations' };
     }
     
-    // Check if user already exists and has admin role
     const existingUser = await User.findOne({ email: inviteeEmail.toLowerCase() });
     if (existingUser && ['admin', 'super_admin'].includes(existingUser.role)) {
       return { success: false, error: 'User already has admin privileges' };
     }
     
-    // Check for existing unused invitation
     const existingInvitation = await AdminInvitation.findOne({
       email: inviteeEmail.toLowerCase(),
       isUsed: false,
@@ -155,12 +147,10 @@ export async function createAdminInvitation(
       return { success: false, error: 'Active invitation already exists for this email' };
     }
     
-    // Generate secure invitation token
     const invitationToken = crypto.randomBytes(32).toString('hex');
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + expirationHours);
     
-    // Create invitation
     const invitation = await AdminInvitation.create({
       email: inviteeEmail.toLowerCase(),
       role: role,
@@ -172,7 +162,6 @@ export async function createAdminInvitation(
       createdAt: new Date()
     });
     
-    // Log the invitation creation
     await AdminAuditLog.create({
       action: 'INVITATION_CREATED',
       adminEmail: inviterEmail,
@@ -194,7 +183,8 @@ export async function createAdminInvitation(
   }
 }
 
-// SECURE: Promote existing user to admin (with proper verification)
+// ... (rest of the admin management functions remain unchanged)
+
 export async function promoteUserToAdmin(
   adminEmail: string, 
   targetEmail: string, 
@@ -204,36 +194,30 @@ export async function promoteUserToAdmin(
   try {
     await connect();
     
-    // Verify promoter has permission
     const promoter = await User.findOne({ email: adminEmail.toLowerCase() });
     if (!promoter || !['admin', 'super_admin'].includes(promoter.role)) {
       return { success: false, error: 'Insufficient permissions to promote users' };
     }
     
-    // Super admin role can only be assigned by existing super admins
     if (newRole === 'super_admin' && promoter.role !== 'super_admin') {
       return { success: false, error: 'Only super admins can promote to super admin' };
     }
     
-    // Find target user
     const targetUser = await User.findOne({ email: targetEmail.toLowerCase() });
     if (!targetUser) {
       return { success: false, error: 'Target user not found' };
     }
     
-    // Check if user already has the role
     if (targetUser.role === newRole) {
       return { success: false, error: `User already has ${newRole} role` };
     }
     
-    // Prevent self-promotion to super admin
     if (adminEmail.toLowerCase() === targetEmail.toLowerCase() && newRole === 'super_admin') {
       return { success: false, error: 'Cannot promote yourself to super admin' };
     }
     
     const oldRole = targetUser.role;
     
-    // Update user role
     const updatedUser = await User.findOneAndUpdate(
       { email: targetEmail.toLowerCase() },
       { 
@@ -246,7 +230,6 @@ export async function promoteUserToAdmin(
     );
     
     if (updatedUser) {
-      // Log the promotion
       await AdminAuditLog.create({
         action: 'USER_PROMOTED',
         adminEmail: adminEmail,
@@ -257,7 +240,6 @@ export async function promoteUserToAdmin(
         details: `User promoted from ${oldRole} to ${newRole}`
       });
       
-      // Invalidate user's sessions to force re-authentication with new role
       await invalidateUserSessions(updatedUser._id.toString());
       
       return { success: true };
@@ -271,7 +253,6 @@ export async function promoteUserToAdmin(
   }
 }
 
-// SECURE: Demote admin to user (with proper verification and safeguards)
 export async function demoteAdminToUser(
   adminEmail: string, 
   targetEmail: string,
@@ -280,19 +261,16 @@ export async function demoteAdminToUser(
   try {
     await connect();
     
-    // Verify demoter has permission
     const demoter = await User.findOne({ email: adminEmail.toLowerCase() });
     if (!demoter || !['admin', 'super_admin'].includes(demoter.role)) {
       return { success: false, error: 'Insufficient permissions to demote users' };
     }
     
-    // Find target user
     const targetUser = await User.findOne({ email: targetEmail.toLowerCase() });
     if (!targetUser) {
       return { success: false, error: 'Target user not found' };
     }
     
-    // Prevent self-demotion if you're the only super admin
     if (adminEmail.toLowerCase() === targetEmail.toLowerCase()) {
       if (targetUser.role === 'super_admin') {
         const superAdminCount = await User.countDocuments({ role: 'super_admin' });
@@ -302,19 +280,16 @@ export async function demoteAdminToUser(
       }
     }
     
-    // Only super admins can demote other super admins
     if (targetUser.role === 'super_admin' && demoter.role !== 'super_admin') {
       return { success: false, error: 'Only super admins can demote super admins' };
     }
     
-    // Check if user is already a regular user
     if (targetUser.role === 'user') {
       return { success: false, error: 'User is already a regular user' };
     }
     
     const oldRole = targetUser.role;
     
-    // Update user role to user
     const updatedUser = await User.findOneAndUpdate(
       { email: targetEmail.toLowerCase() },
       { 
@@ -327,7 +302,6 @@ export async function demoteAdminToUser(
     );
     
     if (updatedUser) {
-      // Log the demotion
       await AdminAuditLog.create({
         action: 'USER_DEMOTED',
         adminEmail: adminEmail,
@@ -338,7 +312,6 @@ export async function demoteAdminToUser(
         details: `User demoted from ${oldRole} to user`
       });
       
-      // Invalidate user's sessions to force re-authentication with new role
       await invalidateUserSessions(updatedUser._id.toString());
       
       return { success: true };
@@ -352,7 +325,6 @@ export async function demoteAdminToUser(
   }
 }
 
-// Get all admins with detailed information
 export async function getAllAdmins() {
   try {
     await connect();
@@ -365,7 +337,6 @@ export async function getAllAdmins() {
   }
 }
 
-// Get admin activity audit log
 export async function getAdminAuditLog(limit: number = 100) {
   try {
     await connect();
@@ -379,7 +350,6 @@ export async function getAdminAuditLog(limit: number = 100) {
   }
 }
 
-// Get pending admin invitations
 export async function getPendingInvitations() {
   try {
     await connect();
@@ -396,7 +366,6 @@ export async function getPendingInvitations() {
   }
 }
 
-// Revoke admin invitation
 export async function revokeAdminInvitation(
   adminEmail: string, 
   invitationId: string,
@@ -405,7 +374,6 @@ export async function revokeAdminInvitation(
   try {
     await connect();
     
-    // Verify revoker has permission
     const revoker = await User.findOne({ email: adminEmail.toLowerCase() });
     if (!revoker || !['admin', 'super_admin'].includes(revoker.role)) {
       return { success: false, error: 'Insufficient permissions to revoke invitations' };
@@ -420,13 +388,11 @@ export async function revokeAdminInvitation(
       return { success: false, error: 'Invitation has already been used' };
     }
     
-    // Deactivate invitation
     invitation.isActive = false;
     invitation.revokedBy = adminEmail;
     invitation.revokedAt = new Date();
     await invitation.save();
     
-    // Log the revocation
     await AdminAuditLog.create({
       action: 'INVITATION_REVOKED',
       adminEmail: adminEmail,
@@ -459,7 +425,6 @@ export async function invalidateUserSessions(userId: string) {
   });
 }
 
-// FIXED: Clean up expired sessions but don't be too aggressive
 function cleanupExpiredSessions() {
   const now = new Date();
   const maxAge = 24 * 60 * 60 * 1000; // 24 hours
@@ -469,7 +434,6 @@ function cleanupExpiredSessions() {
     const sessionAge = now.getTime() - session.createdAt.getTime();
     const inactivityTime = now.getTime() - session.lastAccessed.getTime();
     
-    // Only remove if session is truly expired (24 hours old) OR inactive for 2+ hours
     if (sessionAge > maxAge || inactivityTime > inactivityTimeout) {
       activeSessions.delete(sessionId);
     }
@@ -480,8 +444,8 @@ export const authOptions: NextAuthConfig = {
   secret: process.env.AUTH_SECRET,
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
-    updateAge: 60 * 60, // Update every hour
+    maxAge: 24 * 60 * 60,
+    updateAge: 60 * 60,
   },
   pages: {
     signIn: "/user/login",
@@ -551,12 +515,10 @@ export const authOptions: NextAuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user, account }) {
-      // FIXED: Only clean up occasionally, not on every request
-      if (Math.random() < 0.01) { // 1% chance to clean up
+      if (Math.random() < 0.01) {
         cleanupExpiredSessions();
       }
 
-      // FIXED: Always preserve existing session info from token
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -572,9 +534,7 @@ export const authOptions: NextAuthConfig = {
         });
       }
 
-      // FIXED: Only invalidate if session was explicitly removed, not just missing
       if (token.sessionId && !isSessionValid(token.sessionId as string)) {
-        // Return null to force re-authentication instead of empty object
         return null;
       }
 
@@ -585,7 +545,6 @@ export const authOptions: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const path = nextUrl.pathname;
       
-      // FIXED: Only check session validity if user is supposedly logged in
       if (isLoggedIn && auth.sessionId && !isSessionValid(auth.sessionId)) {
         return Response.redirect(new URL("/user/login?reason=expired", nextUrl));
       }
@@ -621,13 +580,13 @@ export const authOptions: NextAuthConfig = {
       try {
         await connect();
         
-        // FIXED: Don't clean up sessions during sign in
         let dbUser = await User.findOne({ email: user.email });
 
         if (!dbUser) {
           if (account) {
             const userName = user.name || user.email?.split('@')[0] || 'User';
             
+            // Updated to use ONLY checkAndGetUserRole (no first user promotion)
             const userRole = await checkAndGetUserRole(user.email);
             
             dbUser = await User.create({
@@ -670,12 +629,10 @@ export const authOptions: NextAuthConfig = {
     },
 
     async session({ session, token }: { session: Session; token: CustomToken }): Promise<Session> {
-      // FIXED: Handle null token (from jwt callback)
       if (!token || (!token.email && !token.sub && !token.id)) {
         return {} as Session;
       }
       
-      // FIXED: Validate session but don't invalidate unnecessarily
       if (token.sessionId && !isSessionValid(token.sessionId)) {
         return {} as Session;
       }
@@ -683,7 +640,6 @@ export const authOptions: NextAuthConfig = {
       try {
         await connect();
         
-        // FIXED: Always try to get fresh user data if we have an ID
         if (token.id) {
           const user = await User.findById(token.id);
           if (user && session.user) {
@@ -698,7 +654,6 @@ export const authOptions: NextAuthConfig = {
           }
         }
         
-        // Fallback to token data if DB query fails
         if (session.user) {
           session.user.id = token.id as string;
           session.user.role = token.role as string;
@@ -709,7 +664,6 @@ export const authOptions: NextAuthConfig = {
       } catch (error) {
         console.error("Session callback error:", error);
         
-        // FIXED: Always provide fallback session data
         if (token && session.user) {
           session.user.id = token.id as string;
           session.user.role = token.role as string;
