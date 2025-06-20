@@ -1,25 +1,26 @@
-// app/api/admin/users/route.ts - Get all users for admin management
-
-import { NextResponse } from 'next/server';
+// app/api/admin/users/route.ts - Updated to use new management functions
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
-import { connect } from '@/lib/dbconfigue/dbConfigue';
-import { User } from '@/app/models/auth/authModel';
+import { getAllUsersForAdmin } from '@/lib/admin/management';
 
-export async function GET() {
+// GET - Get all users with pagination and filtering
+export async function GET(request: NextRequest) {
   try {
     const session = await auth();
     
-    if (!session?.user || (session.user.role !== 'admin' && session.user.role !== 'super_admin')) {
+    if (!session?.user || !['admin', 'super_admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await connect();
-    
-    const users = await User.find()
-      .select('email name role provider createdAt isActive promotedBy promotedAt')
-      .sort({ createdAt: -1 });
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '20');
+    const search = searchParams.get('search') || undefined;
+    const roleFilter = searchParams.get('role') as 'all' | 'user' | 'admin' | 'super_admin' || 'all';
 
-    return NextResponse.json({ users });
+    const result = await getAllUsersForAdmin(page, limit, search, roleFilter);
+    
+    return NextResponse.json(result);
     
   } catch (error) {
     console.error('Error fetching users:', error);

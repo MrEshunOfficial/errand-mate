@@ -16,7 +16,6 @@ import {
   Package,
   Info,
   Home,
-  Crown,
   Shield,
 } from "lucide-react";
 import {
@@ -37,6 +36,7 @@ import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import MobileMenu from "./MobileHeader";
+import { Logout } from "../auth-components/Logout";
 
 // Mock category data
 const mockCategories = [
@@ -161,7 +161,6 @@ export default function Header() {
             : "blur(10px) saturate(120%)",
         }}
       >
-        {/* Glassmorphism overlay */}
         <div className="absolute inset-0 bg-gradient-to-r from-red-500/3 via-transparent to-blue-600/3 pointer-events-none" />
 
         <div className="relative w-full max-w-none">
@@ -176,8 +175,8 @@ export default function Header() {
                       <Image
                         src="/errand_logo.jpg"
                         alt="Errand Mate"
-                        width={36}
-                        height={36}
+                        width={32}
+                        height={32}
                         className="relative object-cover w-8 h-8 sm:w-9 sm:h-9 lg:w-10 lg:h-10 rounded-full ring-2 ring-white/50 dark:ring-gray-800/50 shadow-lg"
                         priority
                       />
@@ -436,26 +435,12 @@ function UserMenu() {
                   Admin Panel
                 </Link>
               </DropdownMenuItem>
-              {session?.user?.role === "super_admin" && (
-                <DropdownMenuItem className="rounded-xl hover:bg-purple-50/50 dark:hover:bg-purple-950/50 transition-all duration-300">
-                  <Link
-                    href="/admin/super"
-                    className="flex w-full items-center gap-3 text-purple-600 dark:text-purple-400"
-                  >
-                    <Crown className="h-4 w-4" />
-                    Super Admin
-                  </Link>
-                </DropdownMenuItem>
-              )}
             </DropdownMenuGroup>
           </>
         )}
-
         <DropdownMenuSeparator className="bg-gray-200/50 dark:bg-gray-700/50" />
         <div className="p-2">
-          <button className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50/50 dark:hover:bg-red-950/50 transition-all duration-300 text-sm">
-            Sign Out
-          </button>
+          <Logout className="w-full px-4 py-2 text-left text-red-600 dark:text-red-400 rounded-xl hover:bg-red-50/50 dark:hover:bg-red-950/50 transition-all duration-300 text-sm" />
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -52,7 +52,7 @@ export function Logout({
           }`}
         />
       ) : (
-        showIcon && <LogOut className={`h-4 w-4 ${children ? "mr-2" : ""}`} />
+        showIcon && <LogOut className={`h-4 w-4 ${children ? "" : "mr-2"}`} />
       )}
       {children || (isPending ? "Logging out..." : "Logout")}
     </button>

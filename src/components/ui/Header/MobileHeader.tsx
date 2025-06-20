@@ -10,10 +10,10 @@ import {
   Package,
   Shield,
   Crown,
-  LogOut,
 } from "lucide-react";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import Image from "next/image";
+import { Logout } from "../auth-components/Logout";
 
 // Navigation item interfaces
 interface NavigationItem {
@@ -47,11 +47,6 @@ export default function MobileMenu({
   userSession, // Now accepting userSession as a prop
 }: MobileMenuProps) {
   const { data: session } = useSession();
-
-  const handleSignOut = async () => {
-    await signOut({ callbackUrl: "/" });
-    onClose();
-  };
 
   return (
     <div
@@ -187,13 +182,7 @@ export default function MobileMenu({
 
                     {/* Sign Out */}
                     <div className="pt-3 border-t border-gray-200/30 dark:border-gray-700/30">
-                      <button
-                        onClick={handleSignOut}
-                        className="flex items-center gap-3 p-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-950/50 transition-all duration-300 w-full"
-                      >
-                        <LogOut className="h-5 w-5" />
-                        <span className="font-medium">Sign Out</span>
-                      </button>
+                      <Logout className="flex items-center gap-3 p-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50/50 dark:hover:bg-red-950/50 transition-all duration-300 w-full" />
                     </div>
                   </div>
                 </div>

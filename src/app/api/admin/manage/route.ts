@@ -1,15 +1,15 @@
-// app/api/admin/manage/route.ts - API routes for admin management
-
+// app/api/admin/manage/route.ts - Updated admin management API
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { promoteUserToAdmin, demoteAdminToUser, getAllAdmins } from '@/auth';
+import { auth, demoteAdminToUser, promoteUserToAdmin } from '@/auth';
+import { getAllAdmins } from '@/auth';
+import { promoteExistingUser } from '@/lib/admin/management';
 
 // GET - Get all admins
 export async function GET() {
   try {
     const session = await auth();
     
-    if (!session?.user || (session.user.role !== 'admin' && session.user.role !== 'super_admin')) {
+    if (!session?.user || !['admin', 'super_admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -22,28 +22,41 @@ export async function GET() {
   }
 }
 
-// POST - Promote user to admin
+// POST - Promote user to admin (updated to use new function signatures)
 export async function POST(request: NextRequest) {
   try {
     const session = await auth();
     
-    // Only super_admin can promote users to admin
-    if (!session?.user || session.user.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Unauthorized. Only super admins can promote users.' }, { status: 401 });
+    if (!session?.user || !['admin', 'super_admin'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { email } = await request.json();
+    const { userId, targetEmail, newRole = 'admin' } = await request.json();
     
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    // Support both userId (from user list) and targetEmail (direct email input)
+    if (!userId && !targetEmail) {
+      return NextResponse.json({ error: 'Either userId or targetEmail is required' }, { status: 400 });
     }
 
-    const success = await promoteUserToAdmin(email, session.user.email!);
+    // Check role permissions
+    if (newRole === 'super_admin' && session.user.role !== 'super_admin') {
+      return NextResponse.json({ error: 'Only super admins can promote to super admin' }, { status: 403 });
+    }
+
+    let result;
     
-    if (success) {
-      return NextResponse.json({ message: 'User promoted to admin successfully' });
+    if (userId) {
+      // Promote from user list in admin panel
+      result = await promoteExistingUser(session.user.email!, userId, newRole);
     } else {
-      return NextResponse.json({ error: 'User not found or promotion failed' }, { status: 404 });
+      // Promote by email (direct)
+      result = await promoteUserToAdmin(session.user.email!, targetEmail, newRole);
+    }
+    
+    if (result.success) {
+      return NextResponse.json({ message: `User promoted to ${newRole} successfully` });
+    } else {
+      return NextResponse.json({ error: result.error || 'Promotion failed' }, { status: 400 });
     }
     
   } catch (error) {
@@ -52,33 +65,27 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT - Demote admin to user
+// PUT - Demote admin to user (updated to use new function signatures)
 export async function PUT(request: NextRequest) {
   try {
     const session = await auth();
     
-    // Only super_admin can demote admins
-    if (!session?.user || session.user.role !== 'super_admin') {
-      return NextResponse.json({ error: 'Unauthorized. Only super admins can demote admins.' }, { status: 401 });
+    if (!session?.user || !['admin', 'super_admin'].includes(session.user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { email } = await request.json();
+    const { targetEmail } = await request.json();
     
-    if (!email) {
-      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
+    if (!targetEmail) {
+      return NextResponse.json({ error: 'Target email is required' }, { status: 400 });
     }
 
-    // Prevent super admin from demoting themselves
-    if (email === session.user.email) {
-      return NextResponse.json({ error: 'Cannot demote yourself' }, { status: 400 });
-    }
-
-    const success = await demoteAdminToUser(email, session.user.email!);
+    const result = await demoteAdminToUser(session.user.email!, targetEmail);
     
-    if (success) {
+    if (result.success) {
       return NextResponse.json({ message: 'Admin demoted to user successfully' });
     } else {
-      return NextResponse.json({ error: 'User not found or demotion failed' }, { status: 404 });
+      return NextResponse.json({ error: result.error || 'Demotion failed' }, { status: 400 });
     }
     
   } catch (error) {

@@ -1,5 +1,6 @@
-import React from "react";
+import AdminDashboard from "./users/AdminDashboard";
 
+// app/admin/page.tsx - Admin dashboard page
 export default function AdminPage() {
-  return <div>AdminPage</div>;
+  return <AdminDashboard />;
 }

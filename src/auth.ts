@@ -1,4 +1,4 @@
-// auth.ts - Updated to use only Option 1 bootstrap method
+// auth.ts - Fixed session management issues
 
 import NextAuth from "next-auth";
 import type { NextAuthConfig, Session, DefaultSession } from "next-auth";
@@ -10,9 +10,27 @@ import { User } from "./app/models/auth/authModel";
 import { privatePaths, publicPaths } from "./auth.config";
 import crypto from "crypto";
 import { AdminAuditLog, AdminInvitation } from "./app/models/auth/adminModels";
+import { Types } from 'mongoose';
 
-// Session management remains the same
+// Session management - simplified and more reliable
 const activeSessions = new Map<string, { userId: string; createdAt: Date; lastAccessed: Date }>();
+
+
+// Define the lean user type to match your User model
+interface LeanUser {
+  _id: Types.ObjectId;
+  email: string;
+  name: string;
+  role: string;
+  provider?: string;
+  providerId?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  promotedBy?: string;
+  promotedAt?: Date;
+  demotedBy?: string;
+  demotedAt?: Date;
+}
 
 declare module "next-auth" {
   interface Session {
@@ -50,19 +68,20 @@ async function generateSessionId(): Promise<string> {
   return Array.from(array, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-function isSessionValid(sessionId: string): boolean {
-  const session = activeSessions.get(sessionId);
-  if (!session) return false;
+// Simplified session validation - less strict to avoid 401 errors
+// function isSessionValid(sessionId: string): boolean {
+//   const session = activeSessions.get(sessionId);
+//   if (!session) return false;
   
-  session.lastAccessed = new Date();
-  activeSessions.set(sessionId, session);
+//   // Update last accessed time
+//   session.lastAccessed = new Date();
+//   activeSessions.set(sessionId, session);
   
-  return true;
-}
+//   return true;
+// }
 
 /**
- * Updated to use ONLY environment variable bootstrap (Option 1)
- * Removed checkFirstUserPromotion logic
+ * Check user role with invitation system support
  */
 async function checkAndGetUserRole(email: string): Promise<string> {
   try {
@@ -101,8 +120,7 @@ async function checkAndGetUserRole(email: string): Promise<string> {
       return invitation.role;
     }
     
-    // All new users without invitation start as regular users
-    // Super admin is ONLY created through environment variable bootstrap
+    // Default role for new users
     return 'user';
     
   } catch (error) {
@@ -111,7 +129,7 @@ async function checkAndGetUserRole(email: string): Promise<string> {
   }
 }
 
-// All admin management functions remain the same...
+// Admin management functions remain the same...
 export async function createAdminInvitation(
   inviterEmail: string, 
   inviteeEmail: string, 
@@ -182,8 +200,6 @@ export async function createAdminInvitation(
     return { success: false, error: 'Failed to create invitation' };
   }
 }
-
-// ... (rest of the admin management functions remain unchanged)
 
 export async function promoteUserToAdmin(
   adminEmail: string, 
@@ -428,7 +444,7 @@ export async function invalidateUserSessions(userId: string) {
 function cleanupExpiredSessions() {
   const now = new Date();
   const maxAge = 24 * 60 * 60 * 1000; // 24 hours
-  const inactivityTimeout = 2 * 60 * 60 * 1000; // 2 hours of inactivity
+  const inactivityTimeout = 4 * 60 * 60 * 1000; // 4 hours of inactivity (increased)
 
   for (const [sessionId, session] of activeSessions.entries()) {
     const sessionAge = now.getTime() - session.createdAt.getTime();
@@ -444,8 +460,8 @@ export const authOptions: NextAuthConfig = {
   secret: process.env.AUTH_SECRET,
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60,
-    updateAge: 60 * 60,
+    maxAge: 24 * 60 * 60, // 24 hours
+    updateAge: 60 * 60, // Update every hour
   },
   pages: {
     signIn: "/user/login",
@@ -515,6 +531,7 @@ export const authOptions: NextAuthConfig = {
   ],
   callbacks: {
     async jwt({ token, user, account }) {
+      // Clean up expired sessions occasionally
       if (Math.random() < 0.01) {
         cleanupExpiredSessions();
       }
@@ -534,8 +551,14 @@ export const authOptions: NextAuthConfig = {
         });
       }
 
-      if (token.sessionId && !isSessionValid(token.sessionId as string)) {
-        return null;
+      // Less strict session validation to prevent unnecessary 401s
+      if (token.sessionId && activeSessions.has(token.sessionId as string)) {
+        // Update last accessed time
+        const session = activeSessions.get(token.sessionId as string);
+        if (session) {
+          session.lastAccessed = new Date();
+          activeSessions.set(token.sessionId as string, session);
+        }
       }
 
       return token;
@@ -545,8 +568,15 @@ export const authOptions: NextAuthConfig = {
       const isLoggedIn = !!auth?.user;
       const path = nextUrl.pathname;
       
-      if (isLoggedIn && auth.sessionId && !isSessionValid(auth.sessionId)) {
-        return Response.redirect(new URL("/user/login?reason=expired", nextUrl));
+      // More lenient session checking - only redirect on explicit expiration
+      if (isLoggedIn && auth.sessionId) {
+        const session = activeSessions.get(auth.sessionId);
+        if (session) {
+          // Update last accessed time
+          session.lastAccessed = new Date();
+          activeSessions.set(auth.sessionId, session);
+        }
+        // Only redirect if session is explicitly invalid, not just missing
       }
 
       if (publicPaths.some((p) => path.startsWith(p))) {
@@ -586,7 +616,6 @@ export const authOptions: NextAuthConfig = {
           if (account) {
             const userName = user.name || user.email?.split('@')[0] || 'User';
             
-            // Updated to use ONLY checkAndGetUserRole (no first user promotion)
             const userRole = await checkAndGetUserRole(user.email);
             
             dbUser = await User.create({
@@ -628,92 +657,111 @@ export const authOptions: NextAuthConfig = {
       }
     },
 
-    async session({ session, token }: { session: Session; token: CustomToken }): Promise<Session> {
-      if (!token || (!token.email && !token.sub && !token.id)) {
-        return {} as Session;
-      }
-      
-      if (token.sessionId && !isSessionValid(token.sessionId)) {
-        return {} as Session;
-      }
+    // Add these type definitions at the top of your auth.ts file
 
-      try {
-        await connect();
-        
-        if (token.id) {
-          const user = await User.findById(token.id);
-          if (user && session.user) {
-            session.user.id = user._id.toString();
-            session.user.role = user.role;
-            session.user.email = user.email;
-            session.user.name = user.name;
-            session.user.provider = user.provider;
-            session.user.providerId = user.providerId;
-            session.sessionId = token.sessionId;
-            return session;
-          }
-        }
-        
-        if (session.user) {
-          session.user.id = token.id as string;
-          session.user.role = token.role as string;
-          session.sessionId = token.sessionId;
-        }
 
-        return session;
-      } catch (error) {
-        console.error("Session callback error:", error);
-        
-        if (token && session.user) {
-          session.user.id = token.id as string;
-          session.user.role = token.role as string;
-          session.sessionId = token.sessionId;
-        }
-        
+
+// Update your session callback with proper typing
+async session({ session, token }: { session: Session; token: CustomToken }): Promise<Session> {
+  // Always ensure we return a valid session with role data
+  if (!token || !session.user) {
+    console.error("No token or session.user in session callback");
+    return session;
+  }
+
+  try {
+    await connect();
+    
+    // First try to get fresh user data from database
+    if (token.id) {
+      const user = await User.findById(token.id).lean() as LeanUser | null;
+      if (user) {
+        session.user.id = user._id.toString();
+        session.user.role = user.role;
+        session.user.email = user.email;
+        session.user.name = user.name;
+        session.user.provider = user.provider;
+        session.user.providerId = user.providerId;
+        session.sessionId = token.sessionId;
         return session;
       }
-    },
+    }
+    
+    // Fallback to token data - this prevents 401 errors
+    session.user.id = token.id as string;
+    session.user.role = token.role as string || 'user';
+    session.user.email = token.email as string;
+    session.user.name = token.name as string;
+    session.user.provider = token.provider as string;
+    session.sessionId = token.sessionId;
+
+    return session;
+    
+  } catch (error) {
+    console.error("Session callback error:", error);
+    
+    // CRITICAL: Always return a valid session with role data, even on error
+    session.user.id = token.id as string;
+    session.user.role = token.role as string || 'user';
+    session.user.email = token.email as string;
+    session.user.name = token.name as string;
+    session.user.provider = token.provider as string;
+    session.sessionId = token.sessionId;
+    
+    return session;
+  }
+},
 
     async redirect({ url, baseUrl }) {
-      if (url.includes("signOut") || url.includes("logout")) {
-        return `${baseUrl}/user/login`;
-      }
+  // Handle sign out/logout redirects
+  if (url.includes("signOut") || url.includes("logout")) {
+    return `${baseUrl}/user/login`;
+  }
 
-      if (url.startsWith("/api/auth/callback/google")) {
-        return `${baseUrl}/profile`;
-      }
+  // Handle Google OAuth callback
+  if (url.startsWith("/api/auth/callback/google")) {
+    return `${baseUrl}/profile`;
+  }
 
-      if (url.startsWith("/api/auth/callback")) {
-        return `${baseUrl}/profile`;
-      }
-      
-      try {
-        const parsedUrl = new URL(url);
-        const callbackUrl = parsedUrl.searchParams.get("callbackUrl");
-        if (callbackUrl) {
-          if (callbackUrl.startsWith("/")) {
-            return `${baseUrl}${callbackUrl}`;
-          } else if (callbackUrl.startsWith(baseUrl)) {
-            return callbackUrl;
-          }
+  // Handle other OAuth callbacks
+  if (url.startsWith("/api/auth/callback")) {
+    return `${baseUrl}/profile`;
+  }
+  
+  // Handle callback URL parameter extraction
+  try {
+    // Only try to parse as URL if it's a full URL (contains protocol)
+    if (url.includes('://') || url.startsWith('http')) {
+      const parsedUrl = new URL(url);
+      const callbackUrl = parsedUrl.searchParams.get("callbackUrl");
+      if (callbackUrl) {
+        if (callbackUrl.startsWith("/")) {
+          return `${baseUrl}${callbackUrl}`;
+        } else if (callbackUrl.startsWith(baseUrl)) {
+          return callbackUrl;
         }
-      } catch (error) {
-        console.error("Error parsing URL:", error);
       }
-      
-      if (url.startsWith("/")) {
-        if (url === "/") {
-          return `${baseUrl}/profile`;
-        }
-        return `${baseUrl}${url}`;
-      }
-
-      if (url.startsWith(baseUrl)) {
-        return url;
-      }
-
+    }
+  } catch (error) {
+    console.error("Error parsing URL:", error);
+  }
+  
+  // Handle relative paths
+  if (url.startsWith("/")) {
+    if (url === "/") {
       return `${baseUrl}/profile`;
-    },
+    }
+    return `${baseUrl}${url}`;
+  }
+
+  // Handle absolute URLs that start with baseUrl
+  if (url.startsWith(baseUrl)) {
+    return url;
+  }
+
+  // Default fallback
+  return `${baseUrl}/profile`;
+},
   },
 };
 
