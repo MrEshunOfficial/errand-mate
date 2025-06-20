@@ -12,7 +12,6 @@ export async function GET() {
     if (!session?.user || !['admin', 'super_admin'].includes(session.user.role)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
     const invitations = await getAllPendingInvitations();
     return NextResponse.json({ invitations });
     
