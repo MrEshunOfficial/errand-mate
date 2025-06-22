@@ -1,5 +1,5 @@
 // src/models/category-service-models/categoryModel.ts
-import { Category } from "@/store/type/dataTypes";
+import { Category } from "@/store/types/dataTypes";
 import { Schema, model, models, Document, Types } from "mongoose";
 
 // Define the document interface that matches MongoDB structure

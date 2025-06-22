@@ -1,5 +1,5 @@
 // src/models/user-models/clientModel.ts
-import { ContactDetails, IdDetails, clientLocation, ProfilePicture, SocialMediaHandle, ClientServiceRequest, ClientData } from "@/store/type/dataTypes";
+import { ContactDetails, IdDetails, clientLocation, ProfilePicture, SocialMediaHandle, ClientServiceRequest, ClientData } from "@/store/types/dataTypes";
 import { Schema, model, models, Document, Types, Model } from "mongoose";
 
 // Sub-schema definitions

@@ -2,6 +2,7 @@
 "use client";
 
 import { useAdminStats } from "@/hooks/admin/useAdminStats";
+import Link from "next/link";
 
 export default function AdminDashboard() {
   const { stats, loading, error, refetch } = useAdminStats();
@@ -209,7 +210,7 @@ export default function AdminDashboard() {
             <span className="text-2xl">⚡</span>
           </div>
           <div className="space-y-3">
-            <a
+            <Link
               href="/admin/users"
               className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
             >
@@ -227,9 +228,29 @@ export default function AdminDashboard() {
               <div className="text-gray-400 dark:text-gray-500 group-hover:text-blue-600 dark:group-hover:text-blue-400">
                 →
               </div>
-            </a>
+            </Link>
 
-            <a
+            <Link
+              href="/admin/categories"
+              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="text-indigo-600 dark:text-indigo-400">🏷️</div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                    Manage Categories
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Organize and edit categories
+                  </p>
+                </div>
+              </div>
+              <div className="text-gray-400 dark:text-gray-500 group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                →
+              </div>
+            </Link>
+
+            <Link
               href="/admin/invitations"
               className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
             >
@@ -247,9 +268,9 @@ export default function AdminDashboard() {
               <div className="text-gray-400 dark:text-gray-500 group-hover:text-green-600 dark:group-hover:text-green-400">
                 →
               </div>
-            </a>
+            </Link>
 
-            <a
+            <Link
               href="/admin/activities"
               className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors group"
             >
@@ -267,7 +288,7 @@ export default function AdminDashboard() {
               <div className="text-gray-400 dark:text-gray-500 group-hover:text-purple-600 dark:group-hover:text-purple-400">
                 →
               </div>
-            </a>
+            </Link>
           </div>
         </div>
       </div>

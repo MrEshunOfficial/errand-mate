@@ -1,7 +1,7 @@
 // components/Header.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import {
@@ -37,16 +37,9 @@ import { usePathname } from "next/navigation";
 import Image from "next/image";
 import MobileMenu from "./MobileHeader";
 import { Logout } from "../auth-components/Logout";
+import { useCategories } from "@/hooks/admin/useCategory";
 
-// Mock category data
-const mockCategories = [
-  { _id: "1", categoryName: "Delivery Services", serviceCount: 25 },
-  { _id: "2", categoryName: "Home Services", serviceCount: 18 },
-  { _id: "3", categoryName: "Shopping", serviceCount: 32 },
-  { _id: "4", categoryName: "Cleaning", serviceCount: 15 },
-];
-
-// Navigation item interface
+// Navigation item interfaces
 interface NavigationItem {
   title: string;
   href: string;
@@ -62,30 +55,31 @@ interface NavigationChild {
   badge?: string;
 }
 
-// Base navigation items
-const navigationItems: NavigationItem[] = [
+// Category interface (adjust based on your actual Category type)
+// interface Category {
+//   _id: string;
+//   categoryName: string;
+//   serviceCount?: number;
+// }
+
+// Base navigation items (without dynamic categories)
+const baseNavigationItems: NavigationItem[] = [
   {
     title: "Home",
     href: "/",
     icon: <Home className="h-4 w-4" />,
   },
   {
-    title: "Services",
+    title: "Services Categories",
     href: "/errand-services",
     icon: <Package className="h-4 w-4" />,
     children: [
       {
         title: "All Categories",
         href: "/errand-services",
-        description: "Browse all available categories and services",
+        description: "Browse all available categories and their services",
         icon: <Grid3X3 className="h-4 w-4" />,
       },
-      ...mockCategories.map((category) => ({
-        title: category.categoryName,
-        href: `/errand-services/categories/${category._id}`,
-        description: `Explore ${category.categoryName} services`,
-        badge: `${category.serviceCount}`,
-      })),
     ],
   },
   {
@@ -130,6 +124,63 @@ export default function Header() {
   const { data: session } = useSession();
   const userSession = session?.user?.id;
   const pathname = usePathname();
+
+  // Categories hook
+  const { categories, getCategoriesWithCounts, getCategories } =
+    useCategories();
+
+  // Fetch categories on mount
+  useEffect(() => {
+    const fetchData = async () => {
+      // Fetch both regular categories and service counts
+      await Promise.all([
+        getCategories({ limit: 5 }),
+        getCategoriesWithCounts(),
+      ]);
+    };
+
+    fetchData();
+  }, [getCategories, getCategoriesWithCounts]);
+
+  // Enhanced navigation items with real categories
+  const navigationItems = useMemo(() => {
+    const items = [...baseNavigationItems];
+
+    // Find the Services Categories item and enhance it with real data
+    const servicesIndex = items.findIndex(
+      (item) => item.title === "Services Categories"
+    );
+
+    if (servicesIndex !== -1 && categories.length > 0) {
+      // Create category navigation items from real data
+      const categoryChildren: NavigationChild[] = categories
+        .filter(
+          (category) =>
+            category.categoryName &&
+            category.serviceCount &&
+            category.serviceCount > 0
+        )
+        .map((category) => ({
+          title: category.categoryName,
+          href: `/errand-services/categories/${category._id?.toString()}`,
+          description: `Explore ${category.categoryName} services`,
+          badge: category.serviceCount ? `${category.serviceCount}` : undefined,
+        }));
+
+      // Update services navigation with real categories
+      items[servicesIndex].children = [
+        {
+          title: "All Categories",
+          href: "/errand-services",
+          description: "Browse all available categories and their services",
+          icon: <Grid3X3 className="h-4 w-4" />,
+        },
+        ...categoryChildren,
+      ];
+    }
+
+    return items;
+  }, [categories]);
 
   // Handle scroll effect
   useEffect(() => {

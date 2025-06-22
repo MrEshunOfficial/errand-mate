@@ -1,5 +1,5 @@
 // src/models/category-service-models/serviceModel.ts
-import { Service } from "@/store/type/dataTypes";
+import { Service } from "@/store/types/dataTypes";
 import { Schema, model, models, Document, Types, Model } from "mongoose";
 
 export interface IServiceDocument extends Document {

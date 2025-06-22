@@ -1,5 +1,5 @@
 // src/models/user-models/serviceProviderModel.ts
-import { ProviderContactDetails, WitnessDetails, ProviderServiceRequest, ProviderRating, IdDetails, clientLocation, ProfilePicture, SocialMediaHandle, ServiceProviderData } from "@/store/type/dataTypes";
+import { ProviderContactDetails, WitnessDetails, ProviderServiceRequest, ProviderRating, IdDetails, clientLocation, ProfilePicture, SocialMediaHandle, ServiceProviderData } from "@/store/types/dataTypes";
 import { Schema, model, models, Document, Types, Model } from "mongoose";
 import { idDetailsSchema, locationSchema, profilePictureSchema, socialMediaHandleSchema } from "../shared-schemas/common-schemas";
 
