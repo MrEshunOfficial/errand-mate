@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
-import { useServices } from "@/hooks/useServices";
-import { useCategories } from "@/hooks/useCategory";
-import { CreateServiceInput } from "@/store/type/service-categories";
 import { ServiceForm, ServiceFormData } from "../ServiceForm";
+import { useCategories } from "@/hooks/admin/useCategory";
+import { useServices } from "@/hooks/admin/useServices";
+import { CreateServiceInput } from "@/store/types/dataTypes";
+import { Types } from "mongoose";
 
 const CreateServicePage: React.FC = () => {
   const router = useRouter();
@@ -52,10 +53,11 @@ const CreateServicePage: React.FC = () => {
 
     try {
       // Prepare data for submission
+
       const submitData: CreateServiceInput = {
         title: formData.title,
         description: formData.description,
-        categoryId: formData.categoryId,
+        categoryId: new Types.ObjectId(formData.categoryId),
         serviceImage: formData.serviceImage,
         popular: formData.popular,
         isActive: formData.isActive,
