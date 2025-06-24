@@ -151,6 +151,72 @@ const convertToApiUpdateInput = (input: UpdateServiceInput): ApiUpdateServiceInp
   return apiInput;
 };
 
+type PaginationResponseVariant = {
+  total?: number;
+  totalCount?: number;
+  count?: number;
+  page?: number;
+  currentPage?: number;
+  hasNext?: boolean;
+  hasNextPage?: boolean;
+  hasPrev?: boolean;
+  hasPrevPage?: boolean;
+} & Record<string, unknown>;
+
+// Type guard functions
+const hasDataProperty = (obj: unknown): obj is { data: unknown } => {
+  return typeof obj === 'object' && obj !== null && 'data' in obj;
+};
+
+const hasServicesProperty = (obj: unknown): obj is { services: unknown } => {
+  return typeof obj === 'object' && obj !== null && 'services' in obj;
+};
+
+const hasItemsProperty = (obj: unknown): obj is { items: unknown } => {
+  return typeof obj === 'object' && obj !== null && 'items' in obj;
+};
+
+const isServiceDocumentArray = (arr: unknown): arr is IServiceDocument[] => {
+  return Array.isArray(arr) && (
+    arr.length === 0 || 
+    (typeof arr[0] === 'object' && arr[0] !== null && '_id' in arr[0])
+  );
+};
+
+const extractServicesFromResponse = (response: ServicesResponse): IServiceDocument[] => {
+  if (hasDataProperty(response) && isServiceDocumentArray(response.data)) {
+    return response.data;
+  }
+  
+  if (hasServicesProperty(response) && isServiceDocumentArray(response.services)) {
+    return response.services;
+  }
+  
+  if (hasItemsProperty(response) && isServiceDocumentArray(response.items)) {
+    return response.items;
+  }
+  
+  if (isServiceDocumentArray(response)) {
+    return response;
+  }
+  
+  // If response is an object with unknown structure, log it and return empty array
+  console.warn('Unknown ServicesResponse structure:', response);
+  return [];
+};
+
+// Helper function to safely extract pagination info from response
+const extractPaginationFromResponse = (response: ServicesResponse) => {
+  const paginationResponse = response as unknown as PaginationResponseVariant;
+  
+  return {
+    total: paginationResponse.total ?? paginationResponse.totalCount ?? paginationResponse.count ?? 0,
+    page: paginationResponse.page ?? paginationResponse.currentPage ?? 1,
+    hasNext: paginationResponse.hasNext ?? paginationResponse.hasNextPage ?? false,
+    hasPrev: paginationResponse.hasPrev ?? paginationResponse.hasPrevPage ?? false,
+  };
+};
+
 // Async Thunks
 export const fetchServices = createAsyncThunk<
   ServicesResponse,
@@ -160,18 +226,31 @@ export const fetchServices = createAsyncThunk<
   'services/fetchServices',
   async (filters, { rejectWithValue }) => {
     try {
-      // Ensure we always filter for active services unless explicitly set to false
-      const internalFilters: ServiceQueryOptions = {
+      // Provide default filters if none are provided
+      const defaultFilters: ServiceQueryOptions = {
+        page: 1,
+        limit: 10,
+        sortBy: 'createdAt',
+        sortOrder: 'desc',
         isActive: true,
+      };
+      
+      // Merge with provided filters
+      const finalFilters: ServiceQueryOptions = {
+        ...defaultFilters,
         ...filters,
       };
       
       // Convert to API-compatible format
-      const apiFilters = convertToApiFilters(internalFilters);
+      const apiFilters = convertToApiFilters(finalFilters);
       
+      console.log('Fetching services with filters:', apiFilters);
       const response = await ServiceApi.getServices(apiFilters);
+      console.log('Services fetched successfully:', response);
+      
       return response;
     } catch (error) {
+      console.error('Error in fetchServices thunk:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch services';
       return rejectWithValue(errorMessage);
     }
@@ -398,26 +477,42 @@ export const serviceSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // Fetch Services
+    // Fetch Services - FIXED with safe property access
     builder
       .addCase(fetchServices.pending, (state) => {
         state.loading = true;
         state.error = null;
+        console.log('fetchServices pending');
       })
       .addCase(fetchServices.fulfilled, (state, action) => {
+        console.log('fetchServices fulfilled with payload:', action.payload);
         state.loading = false;
-        state.services = action.payload.services as Draft<IServiceDocument>[];
+        state.error = null;
+        
+        // FIXED: Use helper function to safely extract services
+        const services = extractServicesFromResponse(action.payload);
+        state.services = services as Draft<IServiceDocument>[];
+        
+        // FIXED: Use helper function to safely extract pagination info
+        const paginationInfo = extractPaginationFromResponse(action.payload);
+        const limit = state.filters.limit || 10;
+        const totalPages = Math.ceil(paginationInfo.total / limit);
+        
         state.pagination = {
-          total: action.payload.total,
-          page: action.payload.page,
-          totalPages: action.payload.totalPages,
-          hasNext: action.payload.page < action.payload.totalPages,
-          hasPrev: action.payload.page > 1,
+          total: paginationInfo.total,
+          page: paginationInfo.page,
+          totalPages,
+          hasNext: paginationInfo.hasNext || paginationInfo.page < totalPages,
+          hasPrev: paginationInfo.hasPrev || paginationInfo.page > 1,
         };
+        
+        console.log('Services state updated:', state.services.length, 'services');
       })
       .addCase(fetchServices.rejected, (state, action) => {
+        console.error('fetchServices rejected:', action.payload);
         state.loading = false;
         state.error = action.payload || 'Failed to fetch services';
+        // Don't clear services on error, keep existing ones
       });
 
     // Fetch Service By ID

@@ -6,8 +6,6 @@ import { writeFile } from 'fs/promises';
 import { join } from 'path';
 import { mkdir } from 'fs/promises';
 
-
-
 // GET /api/services - Get all services with filtering and pagination
 export async function GET(request: NextRequest) {
   try {
@@ -22,8 +20,6 @@ export async function GET(request: NextRequest) {
       sortOrder: (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
       search: searchParams.get('search') || undefined,
       categoryId: searchParams.get('categoryId') || undefined,
-      // FIX: Only filter by isActive when explicitly provided
-      // This allows both active and inactive services to show by default
       ...(searchParams.has('isActive') && {
         isActive: searchParams.get('isActive') === 'true'
       }),
@@ -58,7 +54,7 @@ async function saveUploadedFile(file: File): Promise<string> {
 
     // Create unique filename with timestamp
     const timestamp = Date.now();
-    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_'); // Sanitize filename
+    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const filename = `${timestamp}-${originalName}`;
     
     // Create uploads directory if it doesn't exist
@@ -177,7 +173,14 @@ export async function POST(request: NextRequest) {
         }, { status: 400 });
       }
 
-      const service = await ServiceService.createService(body);
+      // Convert categoryId to ObjectId
+      const { ObjectId } = await import('mongodb');
+      const serviceInput = {
+        ...body,
+        categoryId: new ObjectId(body.categoryId)
+      };
+
+      const service = await ServiceService.createService(serviceInput);
      
       return NextResponse.json({
         success: true,
